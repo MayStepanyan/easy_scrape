@@ -4,9 +4,15 @@ Utils for parsing html string and its substrings via automation software
 import logging
 import time
 
-import selenium.common
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import (
+    NoSuchElementException,
+    ElementNotInteractableException,
+    ElementClickInterceptedException,
+)
 from webdriver_manager.chrome import ChromeDriverManager
 
 from . import constants
@@ -35,8 +41,14 @@ def scrape_image_links(search_url, n_images, extensions=(".jpg", ".jpeg", ".png"
     image_urls : list of str
         links of images to download
     """
-    browser = webdriver.Chrome(ChromeDriverManager().install())
-    browser.set_window_size(*constants.WINDOW_SIZE)
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument(f"--window-size={constants.WINDOW_SIZE[0]},{constants.WINDOW_SIZE[1]}")
+
+    service = Service(ChromeDriverManager().install())
+    browser = webdriver.Chrome(service=service, options=options)
     browser.get(search_url)
 
     image_urls = []
@@ -81,8 +93,7 @@ def find_and_click_btn(browser, load_time, class_name, name):
         button = browser.find_element(By.CLASS_NAME, class_name)
         button.click()
         is_clicked = True
-    except (selenium.common.NoSuchElementException,
-            selenium.common.ElementNotInteractableException):
+    except (NoSuchElementException, ElementNotInteractableException):
         logging.error(f"Failed to click {name} button: No such element")
     except Exception as exc:
         logging.error(f"Failed to click {name} button: {str(exc)}")
@@ -99,10 +110,10 @@ def scrape_single_src_link(browser, xpath_template, img_index, extensions, max_r
             return get_valid_image_src(browser=browser,
                                        extensions=extensions,
                                        img_cls_name=constants.IMG_CLS_NAME)
-        except selenium.common.NoSuchElementException:
+        except NoSuchElementException:
             logging.error(f"Failed to click on image {img_index} : No such element")
             return
-        except selenium.common.ElementClickInterceptedException:
+        except ElementClickInterceptedException:
             logging.error(f"Failed to click on image {img_index} : Click was intercepted."
                           f"Retry {i + 1} out of {max_retries}")
             time.sleep(load_time)
@@ -114,9 +125,8 @@ def scrape_single_src_link(browser, xpath_template, img_index, extensions, max_r
 
 def get_valid_image_src(browser, extensions, img_cls_name):
     """On a browser with image preview clicked and opened, find and return the src link of it"""
-
     all_elements = browser.find_elements(By.CLASS_NAME, img_cls_name)
-    for element in all_elements:  # its a list of links, and only one can be valid
+    for element in all_elements:
         try:
             src_link = element.get_attribute("src")
             if any(src_link.endswith(extension) for extension in extensions):
