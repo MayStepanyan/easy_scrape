@@ -45,7 +45,7 @@ def scrape_image_links(search_url, n_images, extensions=(".jpg", ".jpeg", ".png"
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    options.add_argument(f"--window-size={constants.WINDOW_SIZE[0]},{constants.WINDOW_SIZE[1]}")
+    options.add_argument("--window-size={},{}".format(*constants.WINDOW_SIZE))
 
     service = Service(ChromeDriverManager().install())
     browser = webdriver.Chrome(service=service, options=options)

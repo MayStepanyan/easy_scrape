@@ -30,24 +30,18 @@ def scan_page(html, extensions, n_max):
     # Google Images is JS-rendered; if there are no quoted https:// URLs at all,
     # the response is a JS shell — fall back to Selenium.
     if '"https://' not in html:
-        raise ValueError(
-            "No image URLs found in raw HTML — page may be JS-rendered. "
-            "Falling back to Selenium."
-        )
+        raise ValueError("No image URLs found in raw HTML — page may be JS-rendered.")
     while len(image_links) < n_max:
-        start = html.find('"https://', end + 1) + 1  # The link starts with " and ends with it too
+        raw_start = html.find('"https://', end + 1)
+        if raw_start == -1:
+            break
+        start = raw_start + 1  # The link starts with " and ends with it too
         end = html.find('"', start)
-        candidate_link = (html[start:end])
-        if image_links:
-            if candidate_link == image_links[0]:  # Stop if html is exhausted
-                break
+        candidate_link = html[start:end]
         if any(candidate_link.endswith(extension) for extension in extensions):
             image_links.append(candidate_link)
     if not image_links:
-        raise ValueError(
-            "HTML contained https:// URLs but none matched the requested extensions. "
-            "Falling back to Selenium."
-        )
+        raise ValueError("HTML contained https:// URLs but none matched the requested extensions.")
     return image_links
 
 
