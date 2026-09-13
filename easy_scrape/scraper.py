@@ -60,7 +60,7 @@ class GoogleImageScraper:
         self.save_dir = os.path.join(MAIN_DIR, self.save_folder_name)
         os.makedirs(self.save_dir, exist_ok=True)
 
-        search_url = SEARCH_URL + quote(self.query.encode("utf-8")) + "&tbm=isch"
+        search_url = SEARCH_URL + quote(self.query) + "&tbm=isch"
 
         if self.n_images < 100:
             try:
@@ -69,7 +69,7 @@ class GoogleImageScraper:
                                        extensions=self.extensions,
                                        n_max=self.n_images)
             except Exception as exc:
-                logging.error(str(exc))
+                logging.warning(f"Fast HTML path failed ({exc}). Falling back to Selenium.")
                 self.links = scrape_image_links(search_url=search_url,
                                                 extensions=self.extensions,
                                                 n_images=self.n_images)
@@ -106,5 +106,5 @@ def download_images(links, filename_prefix, save_dir):
             count += 1
         except Exception as exc:
             logging.error(str(exc))
-        logging.info(f"Successfully downloaded {count} images out of {len(links)}")
+    logging.info(f"Successfully downloaded {count} images out of {len(links)}")
     return count
