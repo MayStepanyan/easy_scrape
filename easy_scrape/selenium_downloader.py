@@ -2,6 +2,8 @@
 Utils for parsing html string and its substrings via automation software
 """
 import logging
+import os
+import shutil
 import time
 
 from selenium import webdriver
@@ -16,6 +18,50 @@ from selenium.common.exceptions import (
 from webdriver_manager.chrome import ChromeDriverManager
 
 from . import constants
+
+# Well-known Chrome/Chromium locations to probe when not on PATH.
+_CHROME_CANDIDATES = [
+    "/opt/pw-browsers/chromium",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+]
+
+# Preferred chromedriver locations checked before PATH (avoids picking up
+# a mismatched driver that happens to be earlier in PATH).
+_CHROMEDRIVER_CANDIDATES = [
+    "/usr/local/bin/chromedriver",
+    "/usr/bin/chromedriver",
+]
+
+
+def _chrome_options():
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--window-size={},{}".format(*constants.WINDOW_SIZE))
+    # Honour CHROME_BINARY env var; otherwise probe well-known paths.
+    binary = os.environ.get("CHROME_BINARY") or next(
+        (p for p in _CHROME_CANDIDATES if os.path.isfile(p)), None
+    )
+    if binary:
+        options.binary_location = binary
+    return options
+
+
+def _chrome_service():
+    # Try webdriver-manager first; fall back to known paths then PATH.
+    try:
+        return Service(ChromeDriverManager().install())
+    except Exception as exc:
+        logging.warning(f"ChromeDriverManager failed ({exc}); falling back to local chromedriver.")
+    driver = (
+        os.environ.get("CHROMEDRIVER_PATH")
+        or next((p for p in _CHROMEDRIVER_CANDIDATES if os.path.isfile(p)), None)
+        or shutil.which("chromedriver")
+    )
+    return Service(driver) if driver else Service()
 
 
 def scrape_image_links(search_url, n_images, extensions=(".jpg", ".jpeg", ".png"),
@@ -41,14 +87,7 @@ def scrape_image_links(search_url, n_images, extensions=(".jpg", ".jpeg", ".png"
     image_urls : list of str
         links of images to download
     """
-    options = Options()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--window-size={},{}".format(*constants.WINDOW_SIZE))
-
-    service = Service(ChromeDriverManager().install())
-    browser = webdriver.Chrome(service=service, options=options)
+    browser = webdriver.Chrome(service=_chrome_service(), options=_chrome_options())
     browser.get(search_url)
 
     image_urls = []
